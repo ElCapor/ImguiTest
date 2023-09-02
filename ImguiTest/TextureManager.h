@@ -84,7 +84,11 @@ public:
 		}
 		return srv;
 	}
-
+	// debug only
+	DirectX::ScratchImage* GetImage()
+	{
+		return this->m_Image;
+	}
 private:
 	DirectX::ScratchImage* m_Image;
 };

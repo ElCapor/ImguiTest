@@ -30,7 +30,8 @@ namespace UnitTest1
 			DX11Image* image = new DX11Image();
 			HRESULT hr = TextureManager::GetInstance().get()->LoadImageFromFile(L"icon.png", "sunglass");
 			Assert::AreEqual(S_OK, hr, L"LoadFromFile error");
-			Assert::IsFalse(TextureManager::GetInstance().get()->GetImage("sunglass").get() == nullptr, L"Image is null !");
+			Assert::IsFalse(TextureManager::GetInstance().get()->GetImage("sunglass")->GetImage() == nullptr, L"Image is null !");
+			//bruh
 		}
 	};
 }
