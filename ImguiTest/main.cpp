@@ -263,6 +263,8 @@ public:
     {
         if (fs::exists(path))
         {
+            original_path = path;
+
             HRESULT hr;
             DirectX::ScratchImage tempImage; // the temp image to store from the file
             DirectX::TexMetadata tempMetadata;
@@ -345,15 +347,51 @@ public:
         return ImVec2(image_info.width, image_info.height);
     }
 
+    // lets add a function to support resizing on the fly
+    bool Resize()
+    {
+
+    }
+
+    void Reset()
+    {
+        //new object (= original cuz we only dealin with bytes so no changes to original file
+        ImGuiImage tempImage(original_path);
+
+        // Swap the internal state of the temporary object with the current object
+        Swap(tempImage);
+    }
+
+    void Draw()
+    {
+        // perform checks cuz u shouldnt be drawin an image with no data lol
+        if (!bytes->empty() && m_ImageID != NULL)
+        {
+            ImGui::Image(GetTextureID(), GetSize());
+        }
+    }
+
 private:
     ImTextureID m_ImageID;
     std::unique_ptr<std::vector<uint8_t>> bytes; // image bytes
 
+    const wchar_t* original_path; // keep this in case , i might write a reset function that will revert it to it's old state maybe
+    // perhaps i should consider storing everything as new bytes but i'm not sure yet
+    // or maybe not saving edits but idk yet
     struct {
         float width;
         float height;
         size_t imageSize;
     } image_info;
+
+
+private:
+    void Swap(ImGuiImage& other)
+    {
+        std::swap(m_ImageID, other.m_ImageID);
+        std::swap(bytes, other.bytes);
+        std::swap(image_info, other.image_info);
+    }
 };
 
 ImGuiImage test;
@@ -401,6 +439,6 @@ void DrawMenu()
     {
         ImGui::Image(myIconID, ImVec2(iconMetadata.width, iconMetadata.height));
     }
-    ImGui::Image(test.GetTextureID(), test.GetSize());
+    test.Draw();
     ImGui::End();
 }
