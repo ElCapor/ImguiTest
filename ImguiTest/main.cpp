@@ -422,6 +422,7 @@ public:
         }
     }
 
+    
     void Reset()
     {
         //new object (= original cuz we only dealin with bytes so no changes to original file
@@ -607,6 +608,15 @@ void DrawMenu()
         ImGui::Image(myIconID, ImVec2(iconMetadata.width, iconMetadata.height));
     }
     test.Draw();
-    
+    ImGui::SameLine();
+    if (ImGui::Button("Reset"))
+    {
+        test.Reset();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Resize"))
+    {
+        test.Resize(64, 64);
+    }
     ImGui::End();
 }
