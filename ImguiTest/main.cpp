@@ -371,28 +371,34 @@ public:
                     );
                     if (SUCCEEDED(hr))
                     {
-                        // set the new bytes into our old
-                        const uint8_t* dataPtr = static_cast<const uint8_t*>(data.GetBufferPointer());
-                        size_t dataSize = data.GetBufferSize();
-                        std::vector<uint8_t> imageBytes(dataPtr, dataPtr + dataSize);
-                        bytes = std::make_unique<std::vector<uint8_t>>(imageBytes);
-                        std::cout << imageBytes.size() << std::endl;
-                        image_info.height = newImage.GetMetadata().height;
-                        image_info.width = newImage.GetMetadata().width;
-                        image_info.imageSize = newImage.GetMetadata().arraySize;
-                        std::cout << "Bytes set successfully" << std::endl;
-                        ID3D11ShaderResourceView* srv;
-                        hr = DirectX::CreateShaderResourceView(g_pd3dDevice, newImage.GetImages(), newImage.GetImageCount(), newImage.GetMetadata(), &srv);
-                        if (SUCCEEDED(hr))
+                        std::vector<uint8_t> tempBytes;
+                        if (BlobToBytes(data, tempBytes))
                         {
-                            this->m_ImageID = (ImTextureID)srv;
-                            std::cout << "Finished" << std::endl;
-                            return true;
+                            bytes = std::make_unique<std::vector<uint8_t>>(tempBytes);
+
+                            image_info.height = newImage.GetMetadata().height;
+                            image_info.width = newImage.GetMetadata().width;
+                            image_info.imageSize = newImage.GetMetadata().arraySize;
+
+                            std::cout << "Bytes set successfully" << std::endl;
+                            ID3D11ShaderResourceView* srv;
+                            hr = DirectX::CreateShaderResourceView(g_pd3dDevice, newImage.GetImages(), newImage.GetImageCount(), newImage.GetMetadata(), &srv);
+                            if (SUCCEEDED(hr))
+                            {
+                                this->m_ImageID = (ImTextureID)srv;
+                                std::cout << "Finished" << std::endl;
+                                return true;
+                            }
+                            else {
+                                std::cout << "Failed to create the shader resource view" << std::endl;
+                                return false;
+                            }
                         }
                         else {
-                            std::cout << "Failed to create the shader resource view" << std::endl;
-                            return false;
+                            std::cout << "Failed to convert Blob to bytes" << std::endl;
                         }
+                        
+                        
                     }
                     else {
                         std::cout << "[ERROR] | " << __FUNCTION__ << " | Failed to write bytes into our own image" << std::endl;
