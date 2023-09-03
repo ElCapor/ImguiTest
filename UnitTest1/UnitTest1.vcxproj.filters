@@ -60,9 +60,6 @@
     <ClCompile Include="..\ImguiTest\emoji_slider.h">
       <Filter>Header Files\widgets</Filter>
     </ClCompile>
-    <ClCompile Include="..\ImguiTest\TextureManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -91,12 +88,6 @@
     </ClInclude>
     <ClInclude Include="..\ImguiTest\imstb_truetype.h">
       <Filter>Header Files\ImGui</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ImguiTest\TextureManager.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ImguiTest\Utils.h">
-      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

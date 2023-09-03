@@ -11,14 +11,10 @@
 // user includes
 #include <DirectXTex.h>
 #include "emoji_slider.h"
-#include "Utils.h"
 
 //#########################################################
 //################ USER FUNCTIONS #########################
 //#########################################################
-
-#include "TextureManager.h"
-
 void DrawMenu();
 
 
@@ -42,8 +38,6 @@ void CreateRenderTarget();
 void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-
-ImTextureID myIconID;
 
 // Main code
 int main(int, char**)
@@ -103,16 +97,6 @@ int main(int, char**)
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     float valutest = 0;
 
-    TextureManager::GetInstance()->SetDevice(g_pd3dDevice);
-    if (TextureManager::GetInstance()->GetDevice() == nullptr)
-    {
-        std::cout << "no device" << std::endl;
-    }
-    if (SUCCEEDED(TextureManager::GetInstance()->LoadImageFromFile(L"icon.png", "smile")))
-    {
-        std::cout << "Load works" << std::endl;
-    }
-     myIconID = (ImTextureID)TextureManager::GetInstance()->GetImage("smile")->asSrv();
     // Main loop
     bool done = false;
     while (!done)
@@ -262,14 +246,161 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 //#########################################################
 //################ DRAW MENU ##############################
 //#########################################################
+#include <mutex>
+#include <filesystem>
+#include <iostream>
+#include <wincodec.h>
+namespace fs = std::filesystem;
 
+class ImGuiImage {
+public:
+    ImGuiImage()
+    {
+        std::cout << "Cant do nothing with an empty constructor lol" << std::endl;
+
+    }
+    ImGuiImage(const wchar_t* path)
+    {
+        if (fs::exists(path))
+        {
+            HRESULT hr;
+            DirectX::ScratchImage tempImage; // the temp image to store from the file
+            DirectX::TexMetadata tempMetadata;
+
+            // loading the image from the file
+            hr = DirectX::LoadFromWICFile(path, DirectX::WIC_FLAGS_NONE, &tempMetadata, tempImage);
+            if (SUCCEEDED(hr))
+            {
+                // time to load the memory data
+                size_t imageSize;
+                DirectX::Blob data;
+                hr = DirectX::SaveToWICMemory(tempImage.GetImages(), tempImage.GetImageCount(), DirectX::WIC_FLAGS_NONE, GUID_ContainerFormatPng, data);
+                if SUCCEEDED(hr)
+                {
+                    const uint8_t* dataPtr = static_cast<const uint8_t*>(data.GetBufferPointer());
+                    size_t dataSize = data.GetBufferSize();
+                    std::vector<uint8_t> imageBytes(dataPtr, dataPtr + dataSize);
+                    bytes = std::make_unique<std::vector<uint8_t>>(imageBytes);
+                    std::cout << imageBytes.size() << std::endl;
+                    image_info.height = tempMetadata.height;
+                    image_info.width = tempMetadata.width;
+                    image_info.imageSize = tempMetadata.arraySize;
+                    std::cout << "Bytes set successfully" << std::endl;
+
+                    // we could use the tempImage that we made , but i did this to make sure that the bytes we set are correct
+                    if (!bytes->empty()) // we perform check , cuz something bad could happen idk
+                    {
+                        // we do everything again to make sure it's correct
+                        DirectX::TexMetadata anotherMeta;
+                        DirectX::ScratchImage anotherImage;
+                        hr = DirectX::LoadFromWICMemory(
+                            bytes->data(),
+                            bytes->size(),
+                            DirectX::WIC_FLAGS_NONE,
+                            &anotherMeta,
+                            anotherImage
+                        );
+                        if (SUCCEEDED(hr))
+                        {
+                            ID3D11ShaderResourceView* srv;
+                            hr = DirectX::CreateShaderResourceView(g_pd3dDevice, anotherImage.GetImages(), anotherImage.GetImageCount(), anotherImage.GetMetadata(), &srv);
+                            if (SUCCEEDED(hr))
+                            {
+                                this->m_ImageID = (ImTextureID)srv;
+                                std::cout << "Finished" << std::endl;
+                            }
+                            else {
+                                std::cout << "Failed to create the shader resource view" << std::endl;
+                            }
+                        }
+                        else {
+                            std::cout << "Failed to load memory from the bytes , perhaps they are empty ?" << std::endl;
+                        }
+                    }
+                    else {
+                        std::cout << "Bytes are empty , this is a fatal error" << std::endl;
+                    }
+                }
+                else {
+                    std::cout << "Failed to parse image bytes" << std::endl;
+                }
+            }
+            else {
+                std::cout << "Loading image from system failed , please check your path" << std::endl;
+            }
+        }
+        else {
+            std::cout << "Image doesnt exist , make sure the path is correct" << std::endl;
+        }
+       
+    }
+
+    ImTextureID GetTextureID()
+    {
+        return this->m_ImageID;
+    }
+
+    ImVec2 GetSize()
+    {
+        return ImVec2(image_info.width, image_info.height);
+    }
+
+private:
+    ImTextureID m_ImageID;
+    std::unique_ptr<std::vector<uint8_t>> bytes; // image bytes
+
+    struct {
+        float width;
+        float height;
+        size_t imageSize;
+    } image_info;
+};
+
+ImGuiImage test;
+ImTextureID myIconID;
+DirectX::TexMetadata iconMetadata;
+std::once_flag flag;
 void DrawMenu()
 {
     ImGui::ShowStyleEditor();
     ImGui::Begin("Hello");
-    ImGuiIO& io = ImGui::GetIO();
+    
+    std::call_once(flag, []() {
 
-    DirectX::TexMetadata meta = TextureManager::GetInstance()->GetImage("smile")->GetMetadata();
-    ImGui::Image(myIconID, ImVec2(meta.width, meta.height));
+        test = ImGuiImage(L"icon.png");
+        DirectX::TexMetadata metadata;
+        DirectX::ScratchImage scratchImage;
+
+        HRESULT hr = DirectX::LoadFromWICFile(L"icon.png", DirectX::WIC_FLAGS_NONE, &metadata, scratchImage);
+
+        if (SUCCEEDED(hr))
+        { 
+
+            DirectX::ScratchImage resizedImage;
+
+            hr = DirectX::Resize(
+                scratchImage.GetImages(),
+                scratchImage.GetImageCount(),
+                scratchImage.GetMetadata(),
+                64,                         // Destination width
+                64,                         // Destination height
+                DirectX::TEX_FILTER_DEFAULT,
+                resizedImage
+            );
+
+            ID3D11ShaderResourceView* srv;
+            hr = DirectX::CreateShaderResourceView(g_pd3dDevice, resizedImage.GetImages(), resizedImage.GetImageCount(), resizedImage.GetMetadata(), &srv);
+            if (SUCCEEDED(hr))
+            {
+                myIconID = (ImTextureID)srv;
+                iconMetadata = resizedImage.GetMetadata();
+            }
+        }
+        });
+    if (myIconID)
+    {
+        ImGui::Image(myIconID, ImVec2(iconMetadata.width, iconMetadata.height));
+    }
+    ImGui::Image(test.GetTextureID(), test.GetSize());
     ImGui::End();
 }
