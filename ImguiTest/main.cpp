@@ -282,6 +282,7 @@ public:
                     std::cout << "Bytes set successfully" << std::endl;
 
                     // we could use the tempImage that we made , but i did this to make sure that the bytes we set are correct
+
                     if (!bytes->empty()) // we perform check , cuz something bad could happen idk
                     {
                         // we do everything again to make sure it's correct
@@ -345,15 +346,7 @@ public:
             }
             HRESULT hr;
             DirectX::ScratchImage tempImage;
-            DirectX::TexMetadata tempMetadata;
-            hr = DirectX::LoadFromWICMemory(
-                bytes->data(),
-                bytes->size(),
-                DirectX::WIC_FLAGS_NONE,
-                &tempMetadata,
-                tempImage
-            );
-            if (SUCCEEDED(hr))
+            if (BytesToImage(*bytes, tempImage))
             {
                 DirectX::ScratchImage newImage;
                 DirectX::TexMetadata newMetadata;
@@ -466,6 +459,21 @@ private:
         std::swap(image_info, other.image_info);
     }
 
+    bool BlobToBytes(DirectX::Blob& blob, std::vector<uint8_t>& bytes) const
+    {
+        if (blob.GetBufferPointer() != nullptr || blob.GetBufferSize() > 0)
+        {
+            const uint8_t* dataPtr = static_cast<const uint8_t*>(blob.GetBufferPointer());
+            size_t dataSize = blob.GetBufferSize();
+            std::vector<uint8_t> imageBytes(dataPtr, dataPtr + dataSize);
+            bytes = std::move(imageBytes);
+            return true;
+        }
+        return false;
+        
+
+    }
+
     bool ImageToBytes(std::vector<uint8_t>& bytelist, DirectX::ScratchImage& image) const
     {
         HRESULT hr;
@@ -473,11 +481,14 @@ private:
         hr = DirectX::SaveToWICMemory(image.GetImages(), image.GetImageCount(), DirectX::WIC_FLAGS_NONE, GUID_ContainerFormatPng, data);
         if (SUCCEEDED(hr))
         {
-            const uint8_t* dataPtr = static_cast<const uint8_t*>(data.GetBufferPointer());
-            size_t dataSize = data.GetBufferSize();
-            std::vector<uint8_t> imageBytes(dataPtr, dataPtr + dataSize);
-            bytelist = imageBytes;
-            return true;
+            if (BlobToBytes(data, bytelist))
+            {
+                return true;
+            }
+            else {
+                std::cout << "Blob was empty" << std::endl;
+                return false;
+            }
         }
         else {
             std::cout << "Failed to parse image bytes" << std::endl;
