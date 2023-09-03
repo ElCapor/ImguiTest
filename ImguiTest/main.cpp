@@ -250,7 +250,9 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 #include <filesystem>
 #include <iostream>
 #include <wincodec.h>
+#include <utility>
 namespace fs = std::filesystem;
+    
 
 class ImGuiImage {
 public:
@@ -265,44 +267,26 @@ public:
         {
             original_path = path;
 
-            HRESULT hr;
             DirectX::ScratchImage tempImage; // the temp image to store from the file
             DirectX::TexMetadata tempMetadata;
-
-            // loading the image from the file
-            hr = DirectX::LoadFromWICFile(path, DirectX::WIC_FLAGS_NONE, &tempMetadata, tempImage);
-            if (SUCCEEDED(hr))
+            if (LoadFromFile(path, tempImage))
             {
-                // time to load the memory data
-                size_t imageSize;
-                DirectX::Blob data;
-                hr = DirectX::SaveToWICMemory(tempImage.GetImages(), tempImage.GetImageCount(), DirectX::WIC_FLAGS_NONE, GUID_ContainerFormatPng, data);
-                if SUCCEEDED(hr)
+                HRESULT hr;
+                std::vector<uint8_t> tempBytes;
+                if (ImageToBytes(tempBytes, tempImage))
                 {
-                    const uint8_t* dataPtr = static_cast<const uint8_t*>(data.GetBufferPointer());
-                    size_t dataSize = data.GetBufferSize();
-                    std::vector<uint8_t> imageBytes(dataPtr, dataPtr + dataSize);
-                    bytes = std::make_unique<std::vector<uint8_t>>(imageBytes);
-                    std::cout << imageBytes.size() << std::endl;
-                    image_info.height = tempMetadata.height;
-                    image_info.width = tempMetadata.width;
-                    image_info.imageSize = tempMetadata.arraySize;
+                    bytes = std::make_unique<std::vector<uint8_t>>(tempBytes);
+                    image_info.height = tempImage.GetMetadata().height;
+                    image_info.width = tempImage.GetMetadata().width;
+                    image_info.imageSize = tempImage.GetMetadata().arraySize;
                     std::cout << "Bytes set successfully" << std::endl;
 
                     // we could use the tempImage that we made , but i did this to make sure that the bytes we set are correct
                     if (!bytes->empty()) // we perform check , cuz something bad could happen idk
                     {
                         // we do everything again to make sure it's correct
-                        DirectX::TexMetadata anotherMeta;
                         DirectX::ScratchImage anotherImage;
-                        hr = DirectX::LoadFromWICMemory(
-                            bytes->data(),
-                            bytes->size(),
-                            DirectX::WIC_FLAGS_NONE,
-                            &anotherMeta,
-                            anotherImage
-                        );
-                        if (SUCCEEDED(hr))
+                        if (BytesToImage(*bytes, anotherImage))
                         {
                             ID3D11ShaderResourceView* srv;
                             hr = DirectX::CreateShaderResourceView(g_pd3dDevice, anotherImage.GetImages(), anotherImage.GetImageCount(), anotherImage.GetMetadata(), &srv);
@@ -324,7 +308,7 @@ public:
                     }
                 }
                 else {
-                    std::cout << "Failed to parse image bytes" << std::endl;
+                    std::cout << "ImageToBytes failed" << std::endl;
                 }
             }
             else {
@@ -347,10 +331,96 @@ public:
         return ImVec2(image_info.width, image_info.height);
     }
 
-    // lets add a function to support resizing on the fly
-    bool Resize()
-    {
 
+    // lets add a function to support resizing on the fly
+    bool Resize(float newHeight, float newWidth)
+    {
+        // make sure we're loaded
+        if (!bytes->empty() && m_ImageID != NULL)
+        {
+            if (newHeight == image_info.height && newWidth == image_info.width)
+            {
+                std::cout << "[WARNING] | " << __FUNCTION__ << " | image wasnt resized because it has the same dimensions" << std::endl;
+                return true; // no need to resize if same size
+            }
+            HRESULT hr;
+            DirectX::ScratchImage tempImage;
+            DirectX::TexMetadata tempMetadata;
+            hr = DirectX::LoadFromWICMemory(
+                bytes->data(),
+                bytes->size(),
+                DirectX::WIC_FLAGS_NONE,
+                &tempMetadata,
+                tempImage
+            );
+            if (SUCCEEDED(hr))
+            {
+                DirectX::ScratchImage newImage;
+                DirectX::TexMetadata newMetadata;
+                hr = DirectX::Resize(
+                    tempImage.GetImages(),
+                    tempImage.GetImageCount(),
+                    tempImage.GetMetadata(),
+                    newWidth,
+                    newHeight,
+                    DirectX::TEX_FILTER_DEFAULT,
+                    newImage
+                );
+                if (SUCCEEDED(hr))
+                {
+                    DirectX::Blob data;
+                    hr = DirectX::SaveToWICMemory(
+                        newImage.GetImages(),
+                        newImage.GetImageCount(),
+                        DirectX::WIC_FLAGS_NONE,
+                        GUID_ContainerFormatPng,
+                        data
+                    );
+                    if (SUCCEEDED(hr))
+                    {
+                        // set the new bytes into our old
+                        const uint8_t* dataPtr = static_cast<const uint8_t*>(data.GetBufferPointer());
+                        size_t dataSize = data.GetBufferSize();
+                        std::vector<uint8_t> imageBytes(dataPtr, dataPtr + dataSize);
+                        bytes = std::make_unique<std::vector<uint8_t>>(imageBytes);
+                        std::cout << imageBytes.size() << std::endl;
+                        image_info.height = newImage.GetMetadata().height;
+                        image_info.width = newImage.GetMetadata().width;
+                        image_info.imageSize = newImage.GetMetadata().arraySize;
+                        std::cout << "Bytes set successfully" << std::endl;
+                        ID3D11ShaderResourceView* srv;
+                        hr = DirectX::CreateShaderResourceView(g_pd3dDevice, newImage.GetImages(), newImage.GetImageCount(), newImage.GetMetadata(), &srv);
+                        if (SUCCEEDED(hr))
+                        {
+                            this->m_ImageID = (ImTextureID)srv;
+                            std::cout << "Finished" << std::endl;
+                            return true;
+                        }
+                        else {
+                            std::cout << "Failed to create the shader resource view" << std::endl;
+                            return false;
+                        }
+                    }
+                    else {
+                        std::cout << "[ERROR] | " << __FUNCTION__ << " | Failed to write bytes into our own image" << std::endl;
+                        return false;
+                    }
+                }
+                else {
+                    std::cout << "[ERROR] | " << __FUNCTION__ << " | Failed to resize the image " << std::endl;
+                    return false;
+                }
+            }
+            else {
+                std::cout << "[ERROR] | " << __FUNCTION__ << " | Failed to load image from bytes" << std::endl;
+                return false;
+            }
+        }
+        
+        else {
+            std::cout << "[ERROR] You're trying to resize an uninitialized image (maybe try using .Reset()) " << std::endl;
+            return false;
+        }
     }
 
     void Reset()
@@ -358,7 +428,7 @@ public:
         //new object (= original cuz we only dealin with bytes so no changes to original file
         ImGuiImage tempImage(original_path);
 
-        // Swap the internal state of the temporary object with the current object
+        //swap members , cuz you cant assign the current objects
         Swap(tempImage);
     }
 
@@ -385,12 +455,91 @@ private:
     } image_info;
 
 
+    
+
+// internal functions to make my life easier
 private:
     void Swap(ImGuiImage& other)
     {
         std::swap(m_ImageID, other.m_ImageID);
         std::swap(bytes, other.bytes);
         std::swap(image_info, other.image_info);
+    }
+
+    bool ImageToBytes(std::vector<uint8_t>& bytelist, DirectX::ScratchImage& image) const
+    {
+        HRESULT hr;
+        DirectX::Blob data;
+        hr = DirectX::SaveToWICMemory(image.GetImages(), image.GetImageCount(), DirectX::WIC_FLAGS_NONE, GUID_ContainerFormatPng, data);
+        if (SUCCEEDED(hr))
+        {
+            const uint8_t* dataPtr = static_cast<const uint8_t*>(data.GetBufferPointer());
+            size_t dataSize = data.GetBufferSize();
+            std::vector<uint8_t> imageBytes(dataPtr, dataPtr + dataSize);
+            bytelist = imageBytes;
+            return true;
+        }
+        else {
+            std::cout << "Failed to parse image bytes" << std::endl;
+            return false;
+        }
+    }
+
+    bool BytesToImage(std::vector<uint8_t> bytes, DirectX::ScratchImage& image) const
+    {
+        if (!bytes.empty())
+        {
+            HRESULT hr;
+            DirectX::ScratchImage tempImage;
+            DirectX::TexMetadata tempMeta;
+            hr = DirectX::LoadFromWICMemory(
+                bytes.data(),
+                bytes.size(),
+                DirectX::WIC_FLAGS_NONE,
+                &tempMeta,
+                tempImage
+            );
+            if (SUCCEEDED(hr))
+            {
+                image = std::move(tempImage);
+                return true;
+            }
+            else {
+                std::cout << "Failed to parse image bytes" << std::endl;
+                return false;
+            }
+        }
+        else {
+            std::cout << "[ERROR] " << __FUNCTION__ << " Can't get an image from empty bytes" << std::endl;
+            return false;
+        }
+        
+    }
+
+    bool LoadFromFile(const wchar_t* path, DirectX::ScratchImage& image)
+    {
+        if (fs::exists(path))
+        {
+            HRESULT hr;
+                DirectX::ScratchImage tempImage; // the temp image to store from the file
+                DirectX::TexMetadata tempMetadata;
+
+                // loading the image from the file
+                hr = DirectX::LoadFromWICFile(path, DirectX::WIC_FLAGS_NONE, &tempMetadata, tempImage);
+                if (SUCCEEDED(hr))
+                {
+                    image = std::move(tempImage);
+                    return true;
+                }
+                else {
+                    std::cout << "Loading image from system failed , please check your path" << std::endl;
+                    return false;
+                }
+        }
+        else {
+            std::cout << "Image doesnt exist , make sure the path is correct" << std::endl;
+            return false;
+        }
     }
 };
 
@@ -406,6 +555,7 @@ void DrawMenu()
     std::call_once(flag, []() {
 
         test = ImGuiImage(L"icon.png");
+        test.Resize(64, 64);
         DirectX::TexMetadata metadata;
         DirectX::ScratchImage scratchImage;
 
@@ -440,5 +590,6 @@ void DrawMenu()
         ImGui::Image(myIconID, ImVec2(iconMetadata.width, iconMetadata.height));
     }
     test.Draw();
+    
     ImGui::End();
 }
