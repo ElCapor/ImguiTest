@@ -1,6 +1,8 @@
 // Dear ImGui: standalone example application for DirectX 11
 // If you are new to Dear ImGui, read documentation from the docs/ folder + read the top of imgui.cpp.
 // Read online: https://github.com/ocornut/imgui/tree/master/docs
+#define NOMINMAX
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include "imgui.h"
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx11.h"
@@ -251,6 +253,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 #include <iostream>
 #include <wincodec.h>
 #include <utility>
+#include <Windows.h>
 namespace fs = std::filesystem;
     
 
@@ -396,6 +399,7 @@ public:
                         }
                         else {
                             std::cout << "Failed to convert Blob to bytes" << std::endl;
+                            return false;
                         }
                         
                         
@@ -560,11 +564,187 @@ private:
         }
     }
 };
-
+#include <map>
 ImGuiImage test;
 ImTextureID myIconID;
 DirectX::TexMetadata iconMetadata;
 std::once_flag flag;
+
+
+static std::map<ImGuiID, float> padding_anim;
+static std::vector<ImVec2> sparkle_positions;
+static std::vector<ImVec2> sparkle_sizes;
+
+bool EmojiSliderWithLabel(const char* label, float* value, float min, float max, ImTextureID knobTexture, ImTextureID starTexture, float knobRadius = 20, ImGuiSliderFlags flags = 0)
+{
+    bool value_changed = false; // Declare and initialize value_changed
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGuiContext& g = *GImGui;
+    const ImGuiStyle& style = g.Style;
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    if (window->SkipItems)
+        return false;
+
+    const ImGuiID id = window->GetID(label);
+    const float w = ImGui::CalcItemWidth();
+    const ImVec2 label_size = ImGui::CalcTextSize(label, NULL, true);
+    ImGui::Dummy(ImVec2(0.0f, label_size.y));
+    const ImRect frame_bb(window->DC.CursorPos, window->DC.CursorPos + ImVec2(w, label_size.y + style.FramePadding.y * 2.0f));
+    const ImRect total_bb(frame_bb.Min - ImVec2(0, label_size.y + style.ItemInnerSpacing.y), frame_bb.Max);
+
+    ImGui::ItemSize(total_bb, style.FramePadding.y);
+    if (!ImGui::ItemAdd(total_bb, id, &frame_bb))
+        return false;
+
+    // Check if the mouse is hovering over the slider
+    bool is_mouse_hovering_slider = ImGui::IsMouseHoveringRect(frame_bb.Min, frame_bb.Max);
+
+    // Tabbing or CTRL-clicking on Slider turns it into an input box
+    const bool hovered = ImGui::ItemHoverable(frame_bb, id, 0);
+    const bool hovered_plus = ImGui::ItemHoverable(total_bb, id, 0);
+
+    const bool temp_input_allowed = false;
+    bool temp_input_is_active = temp_input_allowed && ImGui::TempInputIsActive(id);
+
+    // Process mouse interaction only if the mouse is hovering over the slider
+    if (is_mouse_hovering_slider)
+    {
+        if (!temp_input_is_active)
+        {
+            const bool focus_requested = temp_input_allowed && ImGui::FocusableItemRegister(window, id);
+            const bool clicked = (hovered && g.IO.MouseClicked[0]);
+            if (focus_requested || clicked || g.NavActivateId == id || g.NavId == id)
+            {
+                ImGui::SetActiveID(id, window);
+                ImGui::SetFocusID(id, window);
+                ImGui::FocusWindow(window);
+                g.ActiveIdUsingNavDirMask |= (1 << ImGuiDir_Left) | (1 << ImGuiDir_Right);
+                if (temp_input_allowed && (focus_requested || (clicked && g.IO.KeyCtrl) || g.NavId == id))
+                {
+                    temp_input_is_active = true;
+                    ImGui::FocusableItemUnregister(window);
+                }
+            }
+        }
+
+        if (temp_input_is_active)
+        {
+            // Only clamp CTRL+Click input when ImGuiSliderFlags_AlwaysClamp is set
+            const bool is_clamp_input = (flags & ImGuiSliderFlags_AlwaysClamp) != 0;
+            value_changed = ImGui::TempInputScalar(frame_bb, id, label, ImGuiDataType_Float, value, "%.3f", is_clamp_input ? &min : NULL, is_clamp_input ? &max : NULL);
+        }
+
+        // Draw frame
+        const ImU32 frame_col = ImGui::GetColorU32(ImGuiCol_FrameBg);
+        ImGui::RenderFrame(frame_bb.Min, frame_bb.Max, frame_col, true, g.Style.FrameRounding);
+
+        // Slider behavior
+        ImRect grab_bb;
+        value_changed |= ImGui::SliderBehavior(frame_bb, id, ImGuiDataType_Float, value, &min, &max, "%.3f", flags, &grab_bb);
+        if (value_changed)
+            ImGui::MarkItemEdited(id);
+
+        if (grab_bb.Max.x > grab_bb.Min.x)
+            ImGui::RenderFrame(frame_bb.Min, ImVec2(grab_bb.Max.x, frame_bb.Max.y), ImGui::GetColorU32(ImGuiCol_FrameBgActive), true, g.Style.FrameRounding);
+    }
+
+    // Calculate the position of the circular knob
+    float t = (*value - min) / (max - min);
+    ImVec2 knob_pos = ImVec2(frame_bb.Min.x + t * (frame_bb.GetWidth() - knobRadius * 2) + knobRadius, frame_bb.GetCenter().y);
+    float knob_radius = knobRadius;
+
+    // Draw the circular knob with the provided emoji image
+    ImGui::GetWindowDrawList()->AddImage(knobTexture, knob_pos - ImVec2(knob_radius, knob_radius), knob_pos + ImVec2(knob_radius, knob_radius), ImVec2(0, 0), ImVec2(1, 1));
+
+    // Display value using user-provided display format so the user can add prefix/suffix/decorations to the value.
+    char value_buf[64];
+    const char* value_buf_end = value_buf + ImGui::DataTypeFormatString(value_buf, IM_ARRAYSIZE(value_buf), ImGuiDataType_Float, value, "%.3f");
+
+    // Label
+    if (label_size.x > 0)
+        ImGui::RenderText(ImVec2(frame_bb.Min.x, frame_bb.Min.y - style.ItemInnerSpacing.y - label_size.y), label);
+
+    // Value size
+    const ImVec2 value_size = ImGui::CalcTextSize(value_buf, value_buf_end, true);
+
+    auto it_padding = padding_anim.find(id);
+    if (it_padding == padding_anim.end())
+    {
+        padding_anim.insert({ id, {0.f} });
+        it_padding = padding_anim.find(id);
+    }
+
+    it_padding->second = ImClamp(it_padding->second + (2.5f * ImGui::GetIO().DeltaTime * (hovered_plus || ImGui::GetActiveID() == id ? 1.f : -1.f)), 0.f, 1.f);
+
+    // Value
+    if (value_size.x > 0.0f && it_padding->second > 0.f)
+    {
+        auto value_col = ImGui::GetColorU32(ImGuiCol_FrameBg, it_padding->second);
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, it_padding->second);
+
+        char window_name[16];
+        ImFormatString(window_name, IM_ARRAYSIZE(window_name), "##tp_%s", label);
+
+        ImGui::SetNextWindowPos(frame_bb.Max - ImVec2(frame_bb.Max.x - frame_bb.Min.x, 0) / 2 - ImVec2(value_size.x / 2 + 3.f, 0.f));
+        ImGui::SetNextWindowSize((frame_bb.Max - ImVec2(frame_bb.Max.x - frame_bb.Min.x, 0) / 2 + ImVec2(value_size.x / 2 + 3.f, value_size.y + 6)) - (frame_bb.Max - ImVec2(frame_bb.Max.x - frame_bb.Min.x, 0) / 2 - ImVec2(value_size.x / 2 + 3.f, 0.f)));
+        ImGui::SetNextWindowBgAlpha(it_padding->second);
+
+        ImGuiWindowFlags flags = ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration;
+
+        ImGui::Begin(window_name, NULL, flags);
+
+        ImGui::RenderFrame(frame_bb.Min + ImVec2(0.f, (frame_bb.Max.y - frame_bb.Min.y)), frame_bb.Min + ImVec2((frame_bb.Max.x - frame_bb.Min.x), (frame_bb.Max.y - frame_bb.Min.y) + value_size.y + 6), ImGui::GetColorU32(ImGuiCol_FrameBg), ImGui::GetStyle().FrameRounding);
+        ImGui::RenderTextClipped(frame_bb.Min + ImVec2(0.f, (frame_bb.Max.y - frame_bb.Min.y)), frame_bb.Min + ImVec2((frame_bb.Max.x - frame_bb.Min.x), (frame_bb.Max.y - frame_bb.Min.y) + value_size.y + 6), value_buf, value_buf_end, NULL, ImVec2(0.5f, 0.5f));
+
+        ImGui::End();
+
+        ImGui::PopStyleVar();
+    }
+
+    // Add sparkle effect when the value is changing
+    if (value_changed)
+    {
+        // Generate sparkles at the knob position
+        sparkle_positions.push_back(knob_pos);
+        sparkle_sizes.push_back(ImVec2(knobRadius *1.5, knobRadius *1.5));
+    }
+
+    // Update and render sparkles
+    for (int i = 0; i < sparkle_positions.size(); ++i)
+    {
+        ImVec2& sparkle_pos = sparkle_positions[i];
+        ImVec2& sparkle_size = sparkle_sizes[i];
+
+        // Move the sparkle upward
+        sparkle_pos.y -= ImGui::GetIO().DeltaTime * 50.0f;
+
+        // Shrink the sparkle
+        sparkle_size -= ImVec2(ImGui::GetIO().DeltaTime * 10.0f, ImGui::GetIO().DeltaTime * 10.0f);
+
+        if (sparkle_size.x <= 0.0f && sparkle_size.y <= 0.0f)
+        {
+            // Remove expired sparkles
+            sparkle_positions.erase(sparkle_positions.begin() + i);
+            sparkle_sizes.erase(sparkle_sizes.begin() + i);
+            --i;
+            continue;
+        }
+
+        // Draw the sparkle
+        const float sparkle_alpha = it_padding->second * 0.5f; // Adjust sparkle alpha based on padding animation
+        //ImGui::GetWindowDrawList()->AddCircleFilled(sparkle_pos, sparkle_size, IM_COL32(255, 255, 0, static_cast<int>(255 * sparkle_alpha)));
+        ImGui::GetWindowDrawList()->AddImage(starTexture, ImVec2(sparkle_pos.x - sparkle_size.x / 2, sparkle_pos.y - sparkle_size.y / 2), ImVec2(sparkle_pos.x + sparkle_size.x / 2, sparkle_pos.y + sparkle_size.y / 2));
+    }
+
+    return value_changed;
+}
+
+
+ImGuiImage star;
+float test_float;
+int knob_radius;
 void DrawMenu()
 {
     ImGui::ShowStyleEditor();
@@ -573,6 +753,8 @@ void DrawMenu()
     std::call_once(flag, []() {
 
         test = ImGuiImage(L"icon.png");
+        star = ImGuiImage(L"star.png");
+
         test.Resize(64, 64);
         DirectX::TexMetadata metadata;
         DirectX::ScratchImage scratchImage;
@@ -594,6 +776,9 @@ void DrawMenu()
                 resizedImage
             );
 
+            
+            using namespace DirectX;
+            ScratchImage out;
             ID3D11ShaderResourceView* srv;
             hr = DirectX::CreateShaderResourceView(g_pd3dDevice, resizedImage.GetImages(), resizedImage.GetImageCount(), resizedImage.GetMetadata(), &srv);
             if (SUCCEEDED(hr))
@@ -618,5 +803,10 @@ void DrawMenu()
     {
         test.Resize(64, 64);
     }
+    ImGui::SliderInt("Radius", &knob_radius, 12, 100, "%d");
+    EmojiSliderWithLabel("test", &test_float, 0, 100, test.GetTextureID(), star.GetTextureID(), knob_radius);
+
+
+
     ImGui::End();
 }
