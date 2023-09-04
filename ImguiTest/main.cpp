@@ -741,10 +741,85 @@ bool EmojiSliderWithLabel(const char* label, float* value, float min, float max,
     return value_changed;
 }
 
+enum class Edge
+{
+    Top,
+    Right,
+    Bottom,
+    Left
+};
+
+void MoveEmojiAlongBorder(float& xPos, float& yPos, ImTextureID emoji, Edge& currentEdge)
+{
+    const char* text = "";
+    ImGui::Text(text);
+    float speed = 500.0f;
+    float deltaTime = ImGui::GetIO().DeltaTime;
+
+    float windowWidth = ImGui::GetWindowSize().x;
+    float windowHeight = ImGui::GetWindowSize().y;
+    float windowPosX = ImGui::GetWindowPos().x;
+    float windowPosY = ImGui::GetWindowPos().y;
+
+
+
+    ImVec2 rectSize = ImVec2(50, 50);
+
+
+    switch (currentEdge)
+    {
+    case Edge::Top:
+        text = "Top";
+        yPos -= speed * deltaTime;
+        if (yPos < windowPosY)
+        {
+            yPos = windowPosY;
+            currentEdge = Edge::Right;
+        }
+        break;
+
+    case Edge::Right:
+        text = "Right";
+        xPos += speed * deltaTime;
+        if (xPos + rectSize.x > windowPosX + windowWidth)
+        {
+            xPos = windowPosX + windowWidth - rectSize.x;
+            currentEdge = Edge::Bottom;
+        }
+        break;
+
+    case Edge::Bottom:
+        text = "Bottom";
+        yPos += speed * deltaTime;
+        if (yPos + rectSize.y > windowPosY + windowHeight)
+        {
+            yPos = windowPosY + windowHeight - 50;
+            currentEdge = Edge::Left;
+        }
+        break;
+
+    case Edge::Left:
+        text = "Left";
+        xPos -= speed * deltaTime;
+        if (xPos < windowPosX)
+        {
+            xPos = windowPosX;
+            currentEdge = Edge::Top;
+        }
+        break;
+    }
+
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    ImVec2 rectMin = ImVec2(xPos, yPos);
+    ImVec2 rectMax = ImVec2(xPos + 50, yPos + 50);
+    window->DrawList->AddImage(emoji, rectMin, rectMax);
+}
 
 ImGuiImage star;
 float test_float;
 int knob_radius;
+ImVec2 pos_rect;
+Edge CurrentEdge;
 void DrawMenu()
 {
     ImGui::ShowStyleEditor();
@@ -787,6 +862,9 @@ void DrawMenu()
                 iconMetadata = resizedImage.GetMetadata();
             }
         }
+
+        pos_rect = ImVec2(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y);
+        CurrentEdge = Edge::Right;
         });
     if (myIconID)
     {
@@ -805,7 +883,7 @@ void DrawMenu()
     }
     ImGui::SliderInt("Radius", &knob_radius, 12, 100, "%d");
     EmojiSliderWithLabel("test", &test_float, 0, 100, test.GetTextureID(), star.GetTextureID(), knob_radius);
-
+    MoveEmojiAlongBorder(pos_rect.x , pos_rect.y, star.GetTextureID(), CurrentEdge);
 
 
     ImGui::End();
