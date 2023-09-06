@@ -157,6 +157,7 @@
   <ImportGroup Label="ExtensionTargets">
     <Import Project="..\packages\directxtex_desktop_win10.2023.6.14.1\build\native\directxtex_desktop_win10.targets" Condition="Exists('..\packages\directxtex_desktop_win10.2023.6.14.1\build\native\directxtex_desktop_win10.targets')" />
     <Import Project="..\packages\directxtk_desktop_win10.2023.4.28.1\build\native\directxtk_desktop_win10.targets" Condition="Exists('..\packages\directxtk_desktop_win10.2023.4.28.1\build\native\directxtk_desktop_win10.targets')" />
+    <Import Project="..\packages\directxtex_desktop_2019.2023.6.14.1\build\native\directxtex_desktop_2019.targets" Condition="Exists('..\packages\directxtex_desktop_2019.2023.6.14.1\build\native\directxtex_desktop_2019.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
@@ -164,5 +165,6 @@
     </PropertyGroup>
     <Error Condition="!Exists('..\packages\directxtex_desktop_win10.2023.6.14.1\build\native\directxtex_desktop_win10.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\directxtex_desktop_win10.2023.6.14.1\build\native\directxtex_desktop_win10.targets'))" />
     <Error Condition="!Exists('..\packages\directxtk_desktop_win10.2023.4.28.1\build\native\directxtk_desktop_win10.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\directxtk_desktop_win10.2023.4.28.1\build\native\directxtk_desktop_win10.targets'))" />
+    <Error Condition="!Exists('..\packages\directxtex_desktop_2019.2023.6.14.1\build\native\directxtex_desktop_2019.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\directxtex_desktop_2019.2023.6.14.1\build\native\directxtex_desktop_2019.targets'))" />
   </Target>
 </Project>

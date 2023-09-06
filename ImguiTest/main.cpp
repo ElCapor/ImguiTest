@@ -255,7 +255,36 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 #include <utility>
 #include <Windows.h>
 namespace fs = std::filesystem;
-    
+
+
+int rotation_start_index;
+void ImRotateStart()
+{
+    rotation_start_index = ImGui::GetWindowDrawList()->VtxBuffer.Size;
+}
+
+ImVec2 ImRotationCenter()
+{
+    ImVec2 l(FLT_MAX, FLT_MAX), u(-FLT_MAX, -FLT_MAX); // bounds
+
+    const auto& buf = ImGui::GetWindowDrawList()->VtxBuffer;
+    for (int i = rotation_start_index; i < buf.Size; i++)
+        l = ImMin(l, buf[i].pos), u = ImMax(u, buf[i].pos);
+
+    return ImVec2((l.x + u.x) / 2, (l.y + u.y) / 2); // or use _ClipRectStack?
+}
+
+
+void ImRotateEnd(float rad, ImVec2 center = ImRotationCenter())
+{
+    float s = sin(rad), c = cos(rad);
+    center = ImRotate(center, s, c) - center;
+
+    auto& buf = ImGui::GetWindowDrawList()->VtxBuffer;
+    for (int i = rotation_start_index; i < buf.Size; i++)
+        buf[i].pos = ImRotate(buf[i].pos, s, c) - center;
+}
+
 
 class ImGuiImage {
 public:
@@ -266,6 +295,7 @@ public:
     }
     ImGuiImage(const wchar_t* path)
     {
+        this->rotation = 0;
         if (fs::exists(path))
         {
             original_path = path;
@@ -441,8 +471,27 @@ public:
         // perform checks cuz u shouldnt be drawin an image with no data lol
         if (!bytes->empty() && m_ImageID != NULL)
         {
-            ImGui::Image(GetTextureID(), GetSize());
+            if (this->rotation == 0) // skip
+            {
+                ImGui::Image(GetTextureID(), GetSize());
+            }
+            else {
+                ImRotateStart();
+                ImGui::Image(GetTextureID(), GetSize());
+                ImRotateEnd(DegreesToRadians(this->rotation));
+
+            }
         }
+    }
+
+    void Rotate(float degrees)
+    {
+        this->rotation = degrees;
+    }
+
+    float& GetRotation()
+    {
+        return this->rotation;
     }
 
 private:
@@ -458,11 +507,17 @@ private:
         size_t imageSize;
     } image_info;
 
+    float rotation; // newly added after ms devs ghosted me in DirectXTex github page
 
     
 
 // internal functions to make my life easier
 private:
+
+    float DegreesToRadians(float degrees) {
+        return degrees * (DirectX::XM_PI / 180);
+    }
+
     void Swap(ImGuiImage& other)
     {
         std::swap(m_ImageID, other.m_ImageID);
@@ -575,6 +630,7 @@ static std::map<ImGuiID, float> padding_anim;
 static std::vector<ImVec2> sparkle_positions;
 static std::vector<ImVec2> sparkle_sizes;
 
+
 bool EmojiSliderWithLabel(const char* label, float* value, float min, float max, ImTextureID knobTexture, ImTextureID starTexture, float knobRadius = 20, ImGuiSliderFlags flags = 0)
 {
     bool value_changed = false; // Declare and initialize value_changed
@@ -654,9 +710,10 @@ bool EmojiSliderWithLabel(const char* label, float* value, float min, float max,
     ImVec2 knob_pos = ImVec2(frame_bb.Min.x + t * (frame_bb.GetWidth() - knobRadius * 2) + knobRadius, frame_bb.GetCenter().y);
     float knob_radius = knobRadius;
 
+    ImRotateStart();
     // Draw the circular knob with the provided emoji image
     ImGui::GetWindowDrawList()->AddImage(knobTexture, knob_pos - ImVec2(knob_radius, knob_radius), knob_pos + ImVec2(knob_radius, knob_radius), ImVec2(0, 0), ImVec2(1, 1));
-
+    ImRotateEnd(DirectX::XM_PI);
     // Display value using user-provided display format so the user can add prefix/suffix/decorations to the value.
     char value_buf[64];
     const char* value_buf_end = value_buf + ImGui::DataTypeFormatString(value_buf, IM_ARRAYSIZE(value_buf), ImGuiDataType_Float, value, "%.3f");
@@ -748,6 +805,9 @@ enum class Edge
     Bottom,
     Left
 };
+
+
+
 
 void MoveEmojiAlongBorder(float& xPos, float& yPos, ImTextureID emoji, Edge& currentEdge)
 {
@@ -868,7 +928,9 @@ void DrawMenu()
         });
     if (myIconID)
     {
+        ImRotateStart();
         ImGui::Image(myIconID, ImVec2(iconMetadata.width, iconMetadata.height));
+        ImRotateEnd(0.0005f * ::GetTickCount());
     }
     test.Draw();
     ImGui::SameLine();
@@ -880,6 +942,11 @@ void DrawMenu()
     if (ImGui::Button("Resize"))
     {
         test.Resize(64, 64);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Rotate"))
+    {
+        test.GetRotation() += 45;
     }
     ImGui::SliderInt("Radius", &knob_radius, 12, 100, "%d");
     EmojiSliderWithLabel("test", &test_float, 0, 100, test.GetTextureID(), star.GetTextureID(), knob_radius);
