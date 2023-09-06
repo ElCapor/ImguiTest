@@ -296,6 +296,7 @@ public:
     ImGuiImage(const wchar_t* path)
     {
         this->rotation = 0;
+        // misname in the commit lmao
         if (fs::exists(path))
         {
             original_path = path;
