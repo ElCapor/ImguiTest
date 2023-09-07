@@ -9,7 +9,7 @@
 #include <d3d11.h>
 #include <tchar.h>
 #pragma comment(lib, "d3d11.lib")
-
+#include "RenderManager.h"
 // user includes
 #include <DirectXTex.h>
 #include "emoji_slider.h"
@@ -20,40 +20,27 @@
 void DrawMenu();
 
 
-
-
 //#########################################################
 //################ MAIN LOOP ##############################
 //#########################################################
 
-// Data
-static ID3D11Device* g_pd3dDevice = nullptr;
-static ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;
-static IDXGISwapChain* g_pSwapChain = nullptr;
-static UINT                     g_ResizeWidth = 0, g_ResizeHeight = 0;
-static ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;
-
-// Forward declarations of helper functions
-bool CreateDeviceD3D(HWND hWnd);
-void CleanupDeviceD3D();
-void CreateRenderTarget();
-void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 
 // Main code
 int main(int, char**)
 {
+
     // Create application window
     //ImGui_ImplWin32_EnableDpiAwareness();
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"ImGui Example", nullptr };
     ::RegisterClassExW(&wc);
     HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Dear ImGui DirectX11 Example", WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, nullptr, nullptr, wc.hInstance, nullptr);
-
+    RenderManager* manager = RenderManager::GetInstance();
     // Initialize Direct3D
-    if (!CreateDeviceD3D(hwnd))
+    if (!manager->CreateDeviceD3D(hwnd))
     {
-        CleanupDeviceD3D();
+        manager->CleanupDeviceD3D();
         ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
         return 1;
     }
@@ -62,42 +49,7 @@ int main(int, char**)
     ::ShowWindow(hwnd, SW_SHOWDEFAULT);
     ::UpdateWindow(hwnd);
 
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
-
-    // Setup Platform/Renderer backends
-    ImGui_ImplWin32_Init(hwnd);
-    ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
-
-    // Load Fonts
-    // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
-    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
-    // - If the file cannot be loaded, the function will return a nullptr. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
-    // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-    // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use Freetype for higher quality font rendering.
-    // - Read 'docs/FONTS.md' for more instructions and details.
-    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-    //io.Fonts->AddFontDefault();
-    //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
-    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesJapanese());
-    //IM_ASSERT(font != nullptr);
-
-    // Our state
-    bool show_demo_window = true;
-    bool show_another_window = false;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-    float valutest = 0;
+    manager->InitImGui();
 
     // Main loop
     bool done = false;
@@ -115,102 +67,16 @@ int main(int, char**)
         }
         if (done)
             break;
-
-        // Handle window resize (we don't resize directly in the WM_SIZE handler)
-        if (g_ResizeWidth != 0 && g_ResizeHeight != 0)
-        {
-            CleanupRenderTarget();
-            g_pSwapChain->ResizeBuffers(0, g_ResizeWidth, g_ResizeHeight, DXGI_FORMAT_UNKNOWN, 0);
-            g_ResizeWidth = g_ResizeHeight = 0;
-            CreateRenderTarget();
-        }
-
-        // Start the Dear ImGui frame
-        ImGui_ImplDX11_NewFrame();
-        ImGui_ImplWin32_NewFrame();
-        ImGui::NewFrame();
-
-        DrawMenu();
-       
-
-        // Rendering
-        ImGui::Render();
-        const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
-        g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
-        g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color_with_alpha);
-        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-
-        g_pSwapChain->Present(1, 0); // Present with vsync
-        //g_pSwapChain->Present(0, 0); // Present without vsync
+        manager->MainRenderLoop(DrawMenu);
     }
 
-    // Cleanup
-    ImGui_ImplDX11_Shutdown();
-    ImGui_ImplWin32_Shutdown();
-    ImGui::DestroyContext();
-
-    CleanupDeviceD3D();
+    manager->Shutdown();
     ::DestroyWindow(hwnd);
     ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
 
     return 0;
 }
 
-// Helper functions
-
-bool CreateDeviceD3D(HWND hWnd)
-{
-    // Setup swap chain
-    DXGI_SWAP_CHAIN_DESC sd;
-    ZeroMemory(&sd, sizeof(sd));
-    sd.BufferCount = 2;
-    sd.BufferDesc.Width = 0;
-    sd.BufferDesc.Height = 0;
-    sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    sd.BufferDesc.RefreshRate.Numerator = 60;
-    sd.BufferDesc.RefreshRate.Denominator = 1;
-    sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-    sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    sd.OutputWindow = hWnd;
-    sd.SampleDesc.Count = 1;
-    sd.SampleDesc.Quality = 0;
-    sd.Windowed = TRUE;
-    sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
-
-    UINT createDeviceFlags = 0;
-    //createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
-    D3D_FEATURE_LEVEL featureLevel;
-    const D3D_FEATURE_LEVEL featureLevelArray[2] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_0, };
-    HRESULT res = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags, featureLevelArray, 2, D3D11_SDK_VERSION, &sd, &g_pSwapChain, &g_pd3dDevice, &featureLevel, &g_pd3dDeviceContext);
-    if (res == DXGI_ERROR_UNSUPPORTED) // Try high-performance WARP software driver if hardware is not available.
-        res = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, createDeviceFlags, featureLevelArray, 2, D3D11_SDK_VERSION, &sd, &g_pSwapChain, &g_pd3dDevice, &featureLevel, &g_pd3dDeviceContext);
-    if (res != S_OK)
-        return false;
-
-    CreateRenderTarget();
-    return true;
-}
-
-void CleanupDeviceD3D()
-{
-    CleanupRenderTarget();
-    if (g_pSwapChain) { g_pSwapChain->Release(); g_pSwapChain = nullptr; }
-    if (g_pd3dDeviceContext) { g_pd3dDeviceContext->Release(); g_pd3dDeviceContext = nullptr; }
-    if (g_pd3dDevice) { g_pd3dDevice->Release(); g_pd3dDevice = nullptr; }
-}
-
-void CreateRenderTarget()
-{
-    ID3D11Texture2D* pBackBuffer;
-    g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
-    g_pd3dDevice->CreateRenderTargetView(pBackBuffer, nullptr, &g_mainRenderTargetView);
-    pBackBuffer->Release();
-}
-
-void CleanupRenderTarget()
-{
-    if (g_mainRenderTargetView) { g_mainRenderTargetView->Release(); g_mainRenderTargetView = nullptr; }
-}
 
 // Forward declare message handler from imgui_impl_win32.cpp
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -230,8 +96,8 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_SIZE:
         if (wParam == SIZE_MINIMIZED)
             return 0;
-        g_ResizeWidth = (UINT)LOWORD(lParam); // Queue resize
-        g_ResizeHeight = (UINT)HIWORD(lParam);
+        RenderManager::GetInstance()->GetResizeWidth() = (UINT)LOWORD(lParam); // Queue resize
+        RenderManager::GetInstance()->GetResizeHeight() = (UINT)HIWORD(lParam);
         return 0;
     case WM_SYSCOMMAND:
         if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
@@ -285,17 +151,28 @@ void ImRotateEnd(float rad, ImVec2 center = ImRotationCenter())
         buf[i].pos = ImRotate(buf[i].pos, s, c) - center;
 }
 
-
+/// <summary>
+/// A class to represent DirectX images
+/// </summary>
 class ImGuiImage {
 public:
+    /// <summary>
+    /// Empty constructor , this doesnt initialize anything.
+    /// </summary>
     ImGuiImage()
     {
+        
         std::cout << "Cant do nothing with an empty constructor lol" << std::endl;
 
     }
+    /// <summary>
+    /// Returns an image from the path
+    /// </summary>
+    /// <param name="path">Path of the image file (it must be a png file)</param>
     ImGuiImage(const wchar_t* path)
     {
         this->rotation = 0;
+        ID3D11Device* g_pd3dDevice = RenderManager::GetInstance()->GetDevice();
         // misname in the commit lmao
         if (fs::exists(path))
         {
@@ -356,18 +233,36 @@ public:
        
     }
 
+    /// <summary>
+    /// Get the texture id of the image
+    /// </summary>
+    /// <returns>ImTextureID of the image</returns>
     ImTextureID GetTextureID()
     {
         return this->m_ImageID;
     }
 
+    /// <summary>
+    /// Get the size of the image
+    /// </summary>
+    /// <returns>
+    /// The size of the image
+    /// </returns>
     ImVec2 GetSize()
     {
         return ImVec2(image_info.width, image_info.height);
     }
 
-
-    // lets add a function to support resizing on the fly
+    
+    /// <summary>
+    /// Resize the image on the fly. 
+    /// <remarks>
+    /// NOTE : This doesnt modify the original image file, all changes happens in the memory and during run time only
+    /// </remarks>
+    /// </summary>
+    /// <param name="newHeight">Desired Height</param>
+    /// <param name="newWidth">Desired Width</param>
+    /// <returns></returns>
     bool Resize(float newHeight, float newWidth)
     {
         // make sure we're loaded
@@ -380,6 +275,7 @@ public:
             }
             HRESULT hr;
             DirectX::ScratchImage tempImage;
+            ID3D11Device* g_pd3dDevice = RenderManager::GetInstance()->GetDevice();
             if (BytesToImage(*bytes, tempImage))
             {
                 DirectX::ScratchImage newImage;
@@ -457,7 +353,9 @@ public:
         }
     }
 
-    
+    /// <summary>
+    /// Reset the image to it's original state
+    /// </summary>
     void Reset()
     {
         //new object (= original cuz we only dealin with bytes so no changes to original file
@@ -467,6 +365,9 @@ public:
         Swap(tempImage);
     }
 
+    /// <summary>
+    /// Draws the image
+    /// </summary>
     void Draw()
     {
         // perform checks cuz u shouldnt be drawin an image with no data lol
@@ -485,17 +386,19 @@ public:
         }
     }
 
-    void Rotate(float degrees)
-    {
-        this->rotation = degrees;
-    }
-
-    float& GetRotation()
+    /// <summary>
+    /// A simple function to get/set the rotation of the image
+    /// </summary>
+    /// <returns>A reference to the rotation value</returns>
+    float& Rotation()
     {
         return this->rotation;
     }
 
 private:
+    /// <summary>
+    /// <value>ImGui Texture ID of the image</value>
+    /// </summary>
     ImTextureID m_ImageID;
     std::unique_ptr<std::vector<uint8_t>> bytes; // image bytes
 
@@ -887,7 +790,7 @@ void DrawMenu()
     ImGui::Begin("Hello");
     
     std::call_once(flag, []() {
-
+        ID3D11Device* g_pd3dDevice = RenderManager::GetInstance()->GetDevice();
         test = ImGuiImage(L"icon.png");
         star = ImGuiImage(L"star.png");
 
@@ -947,7 +850,7 @@ void DrawMenu()
     ImGui::SameLine();
     if (ImGui::Button("Rotate"))
     {
-        test.GetRotation() += 45;
+        test.Rotation() += 45;
     }
     ImGui::SliderInt("Radius", &knob_radius, 12, 100, "%d");
     EmojiSliderWithLabel("test", &test_float, 0, 100, test.GetTextureID(), star.GetTextureID(), knob_radius);
