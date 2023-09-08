@@ -9,7 +9,7 @@
 #endif
 
 #if IMGUI_OUTPUT
-#include <imgui.h>	// Imgui.h is assumed to be part of additional include directories (otherwise, IMGUI_OUTPUT can be turned off)
+#include "imgui.h"	// Imgui.h is assumed to be part of additional include directories (otherwise, IMGUI_OUTPUT can be turned off)
 #include <algorithm>
 #endif
 

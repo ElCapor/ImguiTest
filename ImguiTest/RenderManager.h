@@ -132,6 +132,7 @@ public:
 
     void Shutdown()
     {
+        
         // Cleanup
         ImGui_ImplDX11_Shutdown();
         ImGui_ImplWin32_Shutdown();

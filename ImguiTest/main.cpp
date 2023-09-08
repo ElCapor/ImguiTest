@@ -15,6 +15,9 @@
 #include <DirectXTex.h>
 #include "emoji_slider.h"
 
+#include "Profiler.h"
+#include "OutputFormatters.h"
+
 //#########################################################
 //################ USER FUNCTIONS #########################
 //#########################################################
@@ -31,7 +34,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 // Main code
 int main(int, char**)
 {
-
+    SCOPED_PROFILER("main");
     // Create application window
     //ImGui_ImplWin32_EnableDpiAwareness();
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"ImGui Example", nullptr };
@@ -388,6 +391,7 @@ ImVec2 pos_rect;
 Edge CurrentEdge;
 void DrawMenu()
 {
+    SCOPED_PROFILER("DrawMenu")
     ImGui::ShowStyleEditor();
     ImGui::Begin("Hello");
     
@@ -457,7 +461,8 @@ void DrawMenu()
     ImGui::SliderInt("Radius", &knob_radius, 12, 100, "%d");
     EmojiSliderWithLabel("test", &test_float, 0, 100, test.GetTextureID(), star.GetTextureID(), knob_radius);
     MoveEmojiAlongBorder(pos_rect.x , pos_rect.y, star.GetTextureID(), CurrentEdge);
-
+    
 
     ImGui::End();
+    DUMP_TO_IMGUI()
 }

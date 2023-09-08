@@ -5,8 +5,8 @@
 #if USE_PROFILER
 
 
-#define JSON_OUTPUT  1		// Set to 1/0 to enable/disable json output formatting
-#define IMGUI_OUTPUT 0		// Set to 1/0 to enable/disable imgui output formatting
+#define JSON_OUTPUT  0		// Set to 1/0 to enable/disable json output formatting
+#define IMGUI_OUTPUT 1		// Set to 1/0 to enable/disable imgui output formatting
 
 
 #if JSON_OUTPUT

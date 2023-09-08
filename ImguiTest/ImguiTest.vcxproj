@@ -137,6 +137,8 @@
     <ClInclude Include="imstb_rectpack.h" />
     <ClInclude Include="imstb_textedit.h" />
     <ClInclude Include="imstb_truetype.h" />
+    <ClInclude Include="OutputFormatters.h" />
+    <ClInclude Include="Profiler.h" />
     <ClInclude Include="RenderManager.h" />
   </ItemGroup>
   <ItemGroup>
@@ -150,6 +152,8 @@
     <ClCompile Include="imgui_tables.cpp" />
     <ClCompile Include="imgui_widgets.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="OutputFormatters.cpp" />
+    <ClCompile Include="Profiler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
