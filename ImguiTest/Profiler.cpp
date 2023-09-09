@@ -106,7 +106,7 @@ namespace Profiler
 		unsigned long long cyclesTaken = __rdtsc() - m_currentNode->m_stats.m_startCycles;
 
 		// Record on the array of samples the cycles taken for the current call of this node's scope/function
-		//m_currentNode->m_stats.m_previousCycles[m_currentNode->m_stats.m_callCount % CALLS_RECORDED] = static_cast<float>(cyclesTaken);
+		m_currentNode->m_stats.m_previousCycles[m_currentNode->m_stats.m_callCount % CALLS_RECORDED] = static_cast<float>(cyclesTaken);
 
 		// Update the maximum and minimum number of cycles
 		if (cyclesTaken > m_currentNode->m_stats.m_maxCycles)

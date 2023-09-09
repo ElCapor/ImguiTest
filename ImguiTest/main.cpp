@@ -274,7 +274,7 @@ bool EmojiSliderWithLabel(const char* label, float* value, float min, float max,
     {
         // Generate sparkles at the knob position
         sparkle_positions.push_back(knob_pos);
-        sparkle_sizes.push_back(ImVec2(knobRadius *1.5, knobRadius *1.5));
+        sparkle_sizes.emplace_back(ImVec2(knobRadius *1.5, knobRadius *1.5));
     }
 
     // Update and render sparkles
@@ -384,6 +384,7 @@ void MoveEmojiAlongBorder(float& xPos, float& yPos, ImTextureID emoji, Edge& cur
     window->DrawList->AddImage(emoji, rectMin, rectMax);
 }
 
+
 ImGuiImage star;
 float test_float;
 int knob_radius;
@@ -391,11 +392,14 @@ ImVec2 pos_rect;
 Edge CurrentEdge;
 void DrawMenu()
 {
+    
     SCOPED_PROFILER("DrawMenu")
     ImGui::ShowStyleEditor();
     ImGui::Begin("Hello");
     
     std::call_once(flag, []() {
+        SCOPED_PROFILER("LambdaFunction");
+        
         ID3D11Device* g_pd3dDevice = RenderManager::GetInstance()->GetDevice();
         test = ImGuiImage(L"icon.png");
         star = ImGuiImage(L"star.png");
@@ -435,6 +439,8 @@ void DrawMenu()
 
         pos_rect = ImVec2(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y);
         CurrentEdge = Edge::Right;
+
+        
         });
     if (myIconID)
     {
@@ -461,8 +467,8 @@ void DrawMenu()
     ImGui::SliderInt("Radius", &knob_radius, 12, 100, "%d");
     EmojiSliderWithLabel("test", &test_float, 0, 100, test.GetTextureID(), star.GetTextureID(), knob_radius);
     MoveEmojiAlongBorder(pos_rect.x , pos_rect.y, star.GetTextureID(), CurrentEdge);
-    
+    DrawFunnySquares();
 
     ImGui::End();
-    DUMP_TO_IMGUI()
+    DUMP_TO_IMGUI();
 }

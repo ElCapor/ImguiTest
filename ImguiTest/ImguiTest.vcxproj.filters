@@ -19,11 +19,11 @@
     <Filter Include="Header Files\ImGui">
       <UniqueIdentifier>{4c72877c-2e94-4699-a949-6048c9a7140c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\widgets">
-      <UniqueIdentifier>{e2f542b8-ff9c-4521-a5ef-73995033d9c5}</UniqueIdentifier>
+    <Filter Include="Header Files\Profiler">
+      <UniqueIdentifier>{7044467c-56ce-4f62-9ce0-23caed296bf5}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\widgets">
-      <UniqueIdentifier>{191bf72e-3f4d-480f-a15b-3ba165b1e3a1}</UniqueIdentifier>
+    <Filter Include="Source Files\Profiler">
+      <UniqueIdentifier>{a93d5246-47af-4015-bb09-f75d8ea773e2}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -58,10 +58,10 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="OutputFormatters.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Profiler</Filter>
     </ClInclude>
     <ClInclude Include="Profiler.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Profiler</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -89,17 +89,11 @@
     <ClCompile Include="imgui_widgets.cpp">
       <Filter>Source Files\ImGui</Filter>
     </ClCompile>
-    <ClCompile Include="emoji_slider.h">
-      <Filter>Header Files\widgets</Filter>
-    </ClCompile>
-    <ClCompile Include="emoji_slider.cpp">
-      <Filter>Source Files\widgets</Filter>
+    <ClCompile Include="Profiler.cpp">
+      <Filter>Source Files\Profiler</Filter>
     </ClCompile>
     <ClCompile Include="OutputFormatters.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Profiler.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Profiler</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

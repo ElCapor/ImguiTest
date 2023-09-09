@@ -142,8 +142,6 @@
     <ClInclude Include="RenderManager.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="emoji_slider.cpp" />
-    <ClCompile Include="emoji_slider.h" />
     <ClCompile Include="imgui.cpp" />
     <ClCompile Include="imgui_demo.cpp" />
     <ClCompile Include="imgui_draw.cpp" />

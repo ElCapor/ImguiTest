@@ -47,7 +47,7 @@ namespace Profiler
 		private:
 			void dump_node(ProfilingMgr::node* nodeToDump);
 
-			//int m_valOffset = 0;
+			int m_valOffset = 0;
 		};
 
 #define DUMP_TO_IMGUI() Profiler::Formatters::ImGuiFormatter dumper; dumper.on_gui();

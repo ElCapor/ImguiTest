@@ -98,10 +98,10 @@ namespace Profiler
 				float percentage = nodeToDump->m_parent->m_stats.m_totalCycles == 0 ? 100.0f : (100.0f * static_cast<float>(nodeToDump->m_stats.m_totalCycles) / nodeToDump->m_parent->m_stats.m_totalCycles);
 				ImGui::Text("%% with respect to parent: %f", percentage);
 
-				//int valuesCount = static_cast<int>(std::clamp(nodeToDump->m_stats.m_callCount, 1u, CALLS_RECORDED));
-				//int offset = m_valOffset++ % valuesCount;
-				//ImGui::PlotLines("Cycles on previous calls", nodeToDump->m_stats.m_previousCycles, valuesCount, offset);
-				//ImGui::Separator();
+				int valuesCount = static_cast<int>(std::clamp(nodeToDump->m_stats.m_callCount, 1u, CALLS_RECORDED));
+				int offset = m_valOffset++ % valuesCount;
+				ImGui::PlotLines("Cycles on previous calls", nodeToDump->m_stats.m_previousCycles, valuesCount, offset);
+				ImGui::Separator();
 			}
 
 			ProfilingMgr::node* sibTraverser = nodeToDump->m_child;

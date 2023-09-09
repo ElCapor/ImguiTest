@@ -41,7 +41,7 @@ namespace Profiler
 
 
 	// This will be the ammount of calls to each function whose stats will be recorded, for graph plotting purposes.
-	//const unsigned CALLS_RECORDED = 10;
+	const unsigned CALLS_RECORDED = 20;
 
 	class ProfilingMgr
 	{
@@ -60,7 +60,7 @@ namespace Profiler
 			unsigned long long m_totalCycles;
 			unsigned long long m_maxCycles;
 			unsigned long long m_minCycles;
-			//float m_previousCycles[CALLS_RECORDED] = {0};
+			float m_previousCycles[CALLS_RECORDED] = {0};
 		};
 
 		struct node
